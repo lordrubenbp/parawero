@@ -24,10 +24,13 @@ const temperatureElement = document.getElementById('temperature');
 const cityForm = document.getElementById('city-form');
 const cityInput = document.getElementById('city-input');
 const timeButtons = document.querySelectorAll('.time-button');
+const autocompleteContainer = document.getElementById('autocomplete-container');
 
 // Variables de estado de la aplicación
 let currentWeatherData = null;
 let selectedTimeRange = 'today'; // Valor por defecto es "hoy"
+let autocompleteResults = []; // Almacena los resultados del autocompletado
+let autocompleteIndex = -1; // Índice seleccionado en la lista de autocompletado
 
 // Configuración de la API - Usando funciones serverless
 const NETLIFY_FUNCTION_URL = '/.netlify/functions/weather';
@@ -97,7 +100,192 @@ document.addEventListener('DOMContentLoaded', () => {
     timeButtons.forEach(button => {
         button.addEventListener('click', handleTimeRangeSelection);
     });
+    
+    // Configurar funcionalidad de autocompletado
+    setupAutocomplete();
 });
+
+/**
+ * Configura la funcionalidad de autocompletado para la búsqueda de ciudades
+ */
+function setupAutocomplete() {
+    const cityInput = document.getElementById('city-input');
+    const autocompleteContainer = document.getElementById('autocomplete-container');
+    
+    // Evento para detectar cuando el usuario escribe
+    let debounceTimer;
+    cityInput.addEventListener('input', function(e) {
+        clearTimeout(debounceTimer);
+        
+        // Limpiar selección actual
+        autocompleteIndex = -1;
+        
+        const query = this.value.trim();
+        
+        // Ocultar el contenedor si el input está vacío
+        if (query.length < 2) {
+            autocompleteContainer.classList.add('hidden');
+            autocompleteContainer.innerHTML = '';
+            autocompleteResults = [];
+            return;
+        }
+        
+        // Usar debounce para evitar muchas peticiones mientras el usuario escribe
+        debounceTimer = setTimeout(() => {
+            fetchCitySuggestions(query);
+        }, 300);
+    });
+    
+    // Eventos de teclado para navegar por las sugerencias
+    cityInput.addEventListener('keydown', function(e) {
+        if (autocompleteResults.length === 0) return;
+        
+        // Tecla flecha abajo (siguiente sugerencia)
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            autocompleteIndex = (autocompleteIndex + 1) % autocompleteResults.length;
+            updateSelectedAutocompleteItem();
+        }
+        // Tecla flecha arriba (sugerencia anterior)
+        else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            autocompleteIndex = autocompleteIndex <= 0 ? autocompleteResults.length - 1 : autocompleteIndex - 1;
+            updateSelectedAutocompleteItem();
+        }
+        // Tecla Enter (seleccionar sugerencia actual)
+        else if (e.key === 'Enter' && autocompleteIndex >= 0) {
+            e.preventDefault();
+            selectAutocompleteItem(autocompleteResults[autocompleteIndex]);
+        }
+        // Tecla Escape (cerrar sugerencias)
+        else if (e.key === 'Escape') {
+            autocompleteContainer.classList.add('hidden');
+        }
+    });
+    
+    // Ocultar sugerencias cuando se hace clic fuera
+    document.addEventListener('click', function(e) {
+        if (!cityInput.contains(e.target) && !autocompleteContainer.contains(e.target)) {
+            autocompleteContainer.classList.add('hidden');
+        }
+    });
+}
+
+/**
+ * Obtiene sugerencias de ciudades basadas en el texto introducido
+ */
+function fetchCitySuggestions(query) {
+    const autocompleteContainer = document.getElementById('autocomplete-container');
+    
+    // Construir URL para la función serverless de geocodificación directa
+    const geocodingUrl = `${NETLIFY_FUNCTION_URL}?endpoint=geo-direct&q=${encodeURIComponent(query)}&limit=10`;
+    
+    console.log('Buscando sugerencias para:', query);
+    
+    fetch(geocodingUrl)
+        .then(response => {
+            if (!response.ok) {
+                console.error('Error de respuesta:', response.status, response.statusText);
+                throw new Error(`Error al buscar sugerencias: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Sugerencias recibidas:', data);
+            
+            // Guardar resultados globalmente
+            autocompleteResults = data || [];
+            autocompleteIndex = -1;
+            
+            // Mostrar sugerencias en el contenedor
+            displayAutocompleteSuggestions(autocompleteResults);
+        })
+        .catch(error => {
+            console.error('Error al obtener sugerencias:', error);
+            autocompleteResults = [];
+            autocompleteContainer.classList.add('hidden');
+        });
+}
+
+/**
+ * Muestra las sugerencias en el contenedor de autocompletado
+ */
+function displayAutocompleteSuggestions(suggestions) {
+    const autocompleteContainer = document.getElementById('autocomplete-container');
+    
+    // Limpiar contenedor
+    autocompleteContainer.innerHTML = '';
+    
+    // Si no hay sugerencias, ocultar el contenedor
+    if (!suggestions || suggestions.length === 0) {
+        autocompleteContainer.classList.add('hidden');
+        return;
+    }
+    
+    // Crear elementos para cada sugerencia
+    suggestions.forEach((suggestion, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.innerHTML = `
+            <span class="city-name">${suggestion.name}</span>
+            <span class="country-name">${suggestion.country || ''}</span>
+        `;
+        
+        // Evento al hacer clic en una sugerencia
+        item.addEventListener('click', () => {
+            selectAutocompleteItem(suggestion);
+        });
+        
+        // Evento al pasar el ratón por una sugerencia
+        item.addEventListener('mouseover', () => {
+            autocompleteIndex = index;
+            updateSelectedAutocompleteItem();
+        });
+        
+        autocompleteContainer.appendChild(item);
+    });
+    
+    // Mostrar el contenedor
+    autocompleteContainer.classList.remove('hidden');
+}
+
+/**
+ * Actualiza la apariencia del elemento seleccionado en las sugerencias
+ */
+function updateSelectedAutocompleteItem() {
+    const items = document.querySelectorAll('.autocomplete-item');
+    
+    // Eliminar selección de todos los elementos
+    items.forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Añadir selección al elemento actual
+    if (autocompleteIndex >= 0 && autocompleteIndex < items.length) {
+        items[autocompleteIndex].classList.add('selected');
+        items[autocompleteIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+/**
+ * Selecciona un elemento de la lista de autocompletado
+ */
+function selectAutocompleteItem(suggestion) {
+    const cityInput = document.getElementById('city-input');
+    const autocompleteContainer = document.getElementById('autocomplete-container');
+    
+    // Actualizar el valor del input con la ciudad seleccionada
+    cityInput.value = `${suggestion.name}, ${suggestion.country || ''}`;
+    
+    // Ocultar el contenedor de sugerencias
+    autocompleteContainer.classList.add('hidden');
+    
+    // Obtener datos meteorológicos con las coordenadas de la ciudad seleccionada
+    fetchWeatherData(suggestion.lat, suggestion.lon);
+    
+    // Actualizar el nombre de la ubicación
+    locationNameElement.textContent = `${suggestion.name}, ${suggestion.country || ''}`.trim();
+}
 
 /**
  * Maneja la selección de franja horaria
@@ -155,6 +343,11 @@ function handleCitySearch(event) {
     }
     
     showLoading();
+    
+    // Si ya hay un elemento seleccionado en el autocompletado, no es necesario hacer la búsqueda
+    if (autocompleteIndex >= 0 && autocompleteResults.length > 0) {
+        return; // Ya se manejó la selección en selectAutocompleteItem
+    }
     
     // Construir URL para la función serverless de geocodificación directa
     const geocodingUrl = `${NETLIFY_FUNCTION_URL}?endpoint=geo-direct&q=${encodeURIComponent(cityName)}`;
