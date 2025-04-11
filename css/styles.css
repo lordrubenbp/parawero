@@ -170,7 +170,7 @@ main {
 
 /* Imágenes de recomendación */
 .recommendation-icon {
-    max-width: 7.5rem; /* Cambiado de 120px a 7.5rem */
+    max-width: 10.5rem; /* Cambiado de 120px a 10.5rem */
     height: auto;
     display: block;
     margin: 0 auto;
