@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parawero - ¿Necesitas paraguas hoy?</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="lexend-heading">Parawero</h1>
+        </header>
+        
+        <main>
+            <div id="location-search" class="search-container">
+                <form id="city-form">
+                    <input type="text" id="city-input" placeholder="Buscar por ciudad (ej. Madrid, ES)" aria-label="Nombre de la ciudad">
+                    <button type="submit" class="search-button">Buscar</button>
+                </form>
+                <p class="search-tip">O permite acceso a tu ubicación automáticamente</p>
+            </div>
+            
+            <div id="time-range-selector" class="time-range-container">
+                <h3>¿Cuándo lo necesitas saber?</h3>
+                <div class="time-buttons">
+                    <button type="button" class="time-button active" data-time="today">Hoy</button>
+                    <button type="button" class="time-button" data-time="morning">Mañana</button>
+                    <button type="button" class="time-button" data-time="afternoon">Tarde</button>
+                    <button type="button" class="time-button" data-time="evening">Noche</button>
+                </div>
+            </div>
+            
+            <div class="status-container">
+                <div id="loading" class="status-indicator">
+                    <div class="spinner"></div>
+                    <p>Obteniendo información meteorológica...</p>
+                </div>
+                
+                <div id="result" class="status-indicator hidden">
+                    <div id="weather-icon"></div>
+                    <h2 id="recommendation"></h2>
+                    <p id="weather-description"></p>
+                    <div id="weather-details">
+                        <div class="detail">
+                            <span class="label">Probabilidad de lluvia:</span>
+                            <span id="rain-probability"></span>
+                        </div>
+                        <div class="detail">
+                            <span class="label">Temperatura:</span>
+                            <span id="temperature"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="error" class="status-indicator hidden">
+                    <div class="error-icon">!</div>
+                    <h2>¡Ups! Ha ocurrido un error</h2>
+                    <p id="error-message"></p>
+                    <button id="retry-button" class="button">Reintentar</button>
+                </div>
+            </div>
+            
+            <div id="location-info">
+                <div id="location-name">Buscando ubicación...</div>
+                <div id="date"></div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>© 2025 parawero - La forma más simple de saber si necesitas paraguas</p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

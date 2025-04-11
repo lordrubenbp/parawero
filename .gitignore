@@ -1,0 +1,32 @@
+# Dependencias
+node_modules/
+
+# Archivos de entorno
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Archivos de configuración local de Netlify
+.netlify/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Directorios de construcción
+/dist
+/build
+/.netlify
+
+# IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo

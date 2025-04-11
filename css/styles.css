@@ -1,0 +1,333 @@
+/* Base styles and reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-color: #007AFF;
+    --secondary-color: #5AC8FA;
+    --success-color: #34C759;
+    --warning-color: #FF9500;
+    --danger-color: #FF3B30;
+    --text-color: #000000;
+    --text-secondary: #8E8E93;
+    --background-color: #F2F2F7;
+    --card-color: #FFFFFF;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    letter-spacing: -1px;
+}
+
+/* Dancing Script para el título */
+.dancing-script-heading {
+    font-family: "Dancing Script", cursive;
+    font-optical-sizing: auto;
+    font-weight: 700;
+    font-style: normal;
+    font-size: 3.8rem;
+    letter-spacing: 0;
+    margin-bottom: 0.2rem;
+    text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Lexend para el título */
+.lexend-heading {
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
+    font-size: 3.5rem;
+    letter-spacing: -2px;
+    color: var(--primary-color);
+    text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Search container */
+.search-container {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+#city-form {
+    display: flex;
+    max-width: 90%;
+    margin: 0 auto;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+#city-input {
+    flex: 1;
+    padding: 0.8rem 1rem;
+    border: none;
+    font-size: 1rem;
+    font-family: inherit;
+    background-color: var(--card-color);
+    color: var(--text-color);
+}
+
+.search-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.2rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-button:hover {
+    background-color: #0055b3;
+}
+
+.search-tip {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.status-container {
+    background-color: var(--card-color);
+    border-radius: 18px;
+    padding: 2rem;
+    box-shadow: 0 8px 16px var(--shadow-color);
+    margin-bottom: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.status-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    min-height: 15rem;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Spinner animation */
+.spinner {
+    border: 4px solid rgba(0, 122, 255, 0.1);
+    border-left-color: var(--primary-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Weather display */
+#weather-icon {
+    font-size: 8rem; /* Aumentado de 5rem a 8rem */
+    margin-bottom: 1.5rem;
+    line-height: 1;
+}
+
+#recommendation {
+    font-size: 2rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+#weather-description {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+#weather-details {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+    margin-top: 1rem;
+}
+
+.detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.label {
+    font-weight: 500;
+}
+
+/* Error display */
+.error-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--danger-color);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.button:hover {
+    background-color: #0055b3;
+}
+
+/* Location info */
+#location-info {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+#location-name {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+#date {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Time range selector */
+.time-range-container {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.time-range-container h3 {
+    margin-bottom: 0.8rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.time-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.time-button {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--primary-color);
+    background-color: transparent;
+    color: var(--primary-color);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.time-button:hover {
+    background-color: rgba(0, 122, 255, 0.1);
+}
+
+.time-button.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 1rem 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+/* Responsive design */
+@media screen and (max-width: 600px) {
+    .container {
+        padding: 1.5rem 1rem;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .status-container {
+        padding: 1.5rem;
+        border-radius: 12px;
+    }
+    
+    #recommendation {
+        font-size: 1.75rem;
+    }
+    
+    .time-button {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --text-color: #FFFFFF;
+        --text-secondary: #AEAEB2;
+        --background-color: #000000;
+        --card-color: #1C1C1E;
+        --shadow-color: rgba(0, 0, 0, 0.3);
+    }
+}
