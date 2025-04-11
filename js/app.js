@@ -56,22 +56,22 @@ const UMBRELLA_THRESHOLDS = {
 const UMBRELLA_RECOMMENDATIONS = {
     definitely: {
         text: '¡Definitivamente lleva paraguas!',
-        icon: '🌧️',
+        image: 'assets/definitivamente.png',
         color: 'var(--primary-color)'
     },
     probably: {
         text: 'Probablemente necesites paraguas',
-        icon: '☂️',
+        image: 'assets/probablemente.png',
         color: 'var(--primary-accent-color)'
     },
     maybe: {
         text: 'Quizás necesites paraguas',
-        icon: '🌦️',
+        image: 'assets/quizas.png',
         color: 'var(--secondary-color)'
     },
     no: {
         text: 'No necesitas paraguas',
-        icon: '☀️',
+        image: 'assets/no.png',
         color: 'var(--success-color)'
     }
 };
@@ -696,7 +696,7 @@ function showError(message) {
 function updateWeatherUI(recommendation, weatherData) {
     // Actualizar recomendación con el nuevo sistema
     recommendationElement.textContent = recommendation.text;
-    weatherIconElement.innerHTML = recommendation.icon;
+    weatherIconElement.innerHTML = `<img src="${recommendation.image}" alt="${recommendation.text}" class="recommendation-icon">`;
     recommendationElement.style.color = recommendation.color;
     
     // Mostrar consejo adicional si existe
