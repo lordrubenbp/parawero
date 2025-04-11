@@ -168,6 +168,14 @@ main {
     line-height: 1;
 }
 
+/* Imágenes de recomendación */
+.recommendation-icon {
+    max-width: 7.5rem; /* Cambiado de 120px a 7.5rem */
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
 #recommendation {
     font-size: 2rem;
     font-weight: 500;
