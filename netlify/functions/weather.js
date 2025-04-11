@@ -11,11 +11,11 @@ exports.handler = async function(event) {
     // Obtener los parámetros de la solicitud
     const params = event.queryStringParameters;
     
-    // Validar que tenemos los parámetros necesarios
-    if (!params.endpoint || !params.lat || !params.lon) {
+    // Validar que tenemos el parámetro endpoint
+    if (!params.endpoint) {
       return { 
         statusCode: 400, 
-        body: JSON.stringify({ error: 'Faltan parámetros requeridos' })
+        body: JSON.stringify({ error: 'Falta el parámetro endpoint' })
       };
     }
     
@@ -30,22 +30,40 @@ exports.handler = async function(event) {
       };
     }
     
-    // Determinar qué endpoint usar
+    // Determinar qué endpoint usar y validar los parámetros específicos de cada endpoint
     if (params.endpoint === 'weather') {
+      // Validar parámetros para el endpoint weather
+      if (!params.lat || !params.lon) {
+        return { 
+          statusCode: 400, 
+          body: JSON.stringify({ error: 'Faltan parámetros lat y/o lon para el endpoint weather' })
+        };
+      }
+      
       // OneCall API
       const exclude = params.exclude || 'minutely,alerts';
       apiUrl = `https://api.openweathermap.org/data/3.0/onecall?lat=${params.lat}&lon=${params.lon}&units=metric&exclude=${exclude}&appid=${API_KEY}`;
     } else if (params.endpoint === 'geo-reverse') {
+      // Validar parámetros para geocoding inverso
+      if (!params.lat || !params.lon) {
+        return { 
+          statusCode: 400, 
+          body: JSON.stringify({ error: 'Faltan parámetros lat y/o lon para el endpoint geo-reverse' })
+        };
+      }
+      
       // Geocoding inverso API
       apiUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${params.lat}&lon=${params.lon}&limit=1&appid=${API_KEY}`;
     } else if (params.endpoint === 'geo-direct') {
-      // Geocoding directo API
+      // Validar el parámetro q para geocoding directo
       if (!params.q) {
         return {
           statusCode: 400,
-          body: JSON.stringify({ error: 'Falta parámetro q (ciudad)' })
+          body: JSON.stringify({ error: 'Falta el parámetro q (ciudad) para el endpoint geo-direct' })
         };
       }
+      
+      // Geocoding directo API
       apiUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(params.q)}&limit=1&appid=${API_KEY}`;
     } else {
       return {
