@@ -21,8 +21,9 @@ exports.handler = async function(event) {
     
     // Preparar la URL para la API de OpenWeatherMap
     let apiUrl = '';
-    const API_KEY = process.env.WEATHER_API_KEY;
     
+    const API_KEY = process.env.WEATHER_API_KEY;
+
     if (!API_KEY) {
       return {
         statusCode: 500,

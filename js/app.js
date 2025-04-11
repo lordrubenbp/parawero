@@ -33,8 +33,51 @@ let selectedTimeRange = 'today'; // Valor por defecto es "hoy"
 const NETLIFY_FUNCTION_URL = '/.netlify/functions/weather';
 
 // Umbrales para la decisión de paraguas
-const RAIN_PROBABILITY_THRESHOLD = 30; // Porcentaje a partir del cual se recomienda paraguas
-const RAIN_INTENSITY_THRESHOLD = 0.5; // mm/h a partir del cual se recomienda paraguas
+// Sistema ponderado y mejorado para la recomendación de paraguas
+const RAIN_CONDITIONS = ['rain', 'drizzle', 'thunderstorm', 'shower'];
+const SNOW_CONDITIONS = ['snow', 'sleet'];
+
+// Factores de ponderación para diferentes condiciones
+const WEATHER_WEIGHTS = {
+    rainProbability: 0.40,    // 40% de peso para probabilidad de lluvia
+    rainAmount: 0.30,         // 30% de peso para cantidad de lluvia
+    weatherCondition: 0.20,   // 20% de peso para condiciones meteorológicas
+    windSpeed: 0.10           // 10% de peso para velocidad del viento
+};
+
+// Umbrales más granulares para diferentes niveles de recomendación
+const UMBRELLA_THRESHOLDS = {
+    definitely: 70,    // Puntuación desde 70: definitivamente necesitas paraguas
+    probably: 50,      // Puntuación desde 50: probablemente necesites paraguas
+    maybe: 30          // Puntuación desde 30: quizás necesites paraguas
+};
+
+// Nuevas opciones para recomendaciones más específicas
+const UMBRELLA_RECOMMENDATIONS = {
+    definitely: {
+        text: '¡Definitivamente lleva paraguas!',
+        icon: '🌧️',
+        color: 'var(--primary-color)'
+    },
+    probably: {
+        text: 'Probablemente necesites paraguas',
+        icon: '☂️',
+        color: 'var(--primary-accent-color)'
+    },
+    maybe: {
+        text: 'Quizás necesites paraguas',
+        icon: '🌦️',
+        color: 'var(--secondary-color)'
+    },
+    no: {
+        text: 'No necesitas paraguas',
+        icon: '☀️',
+        color: 'var(--success-color)'
+    }
+};
+
+// Intensidad crítica de viento en la que un paraguas es menos efectivo (km/h)
+const WIND_THRESHOLD = 20;
 
 // Inicialización de la aplicación
 document.addEventListener('DOMContentLoaded', () => {
@@ -343,37 +386,68 @@ function processWeatherDataForTimeRange(data, timeRange) {
                 ? dayForecast.weather[0]
                 : { main: 'Clear', description: 'cielo despejado' };
             
-            // Aplicar algoritmo de decisión
-            const needsUmbrella = rainProbability >= RAIN_PROBABILITY_THRESHOLD || 
-                                rainAmount >= RAIN_INTENSITY_THRESHOLD;
+            // Obtener velocidad del viento
+            const windSpeed = dayForecast.wind_speed || 0;
             
-            // Mostrar resultado en la interfaz
-            updateWeatherUI(needsUmbrella, {
+            // Aplicar algoritmo mejorado de decisión
+            const weatherData = {
                 rainProbability: rainProbability,
                 rainAmount: rainAmount,
                 temperature: temperature,
                 weatherCondition: weather.main,
-                weatherDescription: weather.description
-            });
+                weatherDescription: weather.description,
+                windSpeed: windSpeed
+            };
+            
+            const umbrellaScore = calculateUmbrellaScore(weatherData);
+            const recommendation = getUmbrellaRecommendation(umbrellaScore, weatherData);
+            
+            // Mostrar resultado en la interfaz
+            updateWeatherUI(recommendation, weatherData);
             
             return;
         }
         
         // Analizar los pronósticos horarios para determinar si se necesita paraguas
         let maxRainProbability = 0;
-        let accumulatedRain = 0;
+        let totalRainAmount = 0;
+        let maxRainIntensity = 0;
+        let maxWindSpeed = 0;
         let averageTemperature = 0;
         let mainWeatherCondition = '';
         let mainWeatherDescription = '';
+        let rainHours = 0;
+        let consecutiveRainHours = 0;
+        let maxConsecutiveRainHours = 0;
+        let lastHourHadRain = false;
         
         forecastsForTimeRange.forEach(forecast => {
             // Probabilidad de lluvia (ya viene en formato decimal, multiplicamos por 100)
             const rainProbability = (forecast.pop || 0) * 100;
             maxRainProbability = Math.max(maxRainProbability, rainProbability);
             
-            // Acumular precipitación (mm)
+            // Analizar precipitación (mm)
             const rainAmount = forecast.rain ? (forecast.rain['1h'] || 0) : 0;
-            accumulatedRain += rainAmount;
+            totalRainAmount += rainAmount;
+            maxRainIntensity = Math.max(maxRainIntensity, rainAmount);
+            
+            // Contabilizar horas con lluvia y consecutividad
+            if (rainAmount > 0 || rainProbability > 40) {
+                rainHours++;
+                if (lastHourHadRain) {
+                    consecutiveRainHours++;
+                    maxConsecutiveRainHours = Math.max(maxConsecutiveRainHours, consecutiveRainHours);
+                } else {
+                    consecutiveRainHours = 1;
+                    lastHourHadRain = true;
+                }
+            } else {
+                lastHourHadRain = false;
+            }
+            
+            // Analizar velocidad del viento
+            const windSpeed = forecast.wind_speed || 0;
+            maxWindSpeed = Math.max(maxWindSpeed, windSpeed);
             
             // Acumular temperatura
             averageTemperature += forecast.temp;
@@ -381,9 +455,11 @@ function processWeatherDataForTimeRange(data, timeRange) {
             // Guardar la condición climática principal si es lluvia
             if (forecast.weather && forecast.weather.length > 0) {
                 const weather = forecast.weather[0];
-                if (weather.main.toLowerCase().includes('rain') || 
-                    weather.main.toLowerCase().includes('drizzle') || 
-                    weather.main.toLowerCase().includes('thunderstorm')) {
+                const weatherLower = weather.main.toLowerCase();
+                
+                // Priorizar condiciones de lluvia, tormenta y nieve
+                if (RAIN_CONDITIONS.some(condition => weatherLower.includes(condition)) || 
+                    SNOW_CONDITIONS.some(condition => weatherLower.includes(condition))) {
                     mainWeatherCondition = weather.main;
                     mainWeatherDescription = weather.description;
                 } else if (!mainWeatherCondition) {
@@ -401,18 +477,26 @@ function processWeatherDataForTimeRange(data, timeRange) {
             averageTemperature = data.current ? data.current.temp : 20;
         }
         
-        // Aplicar algoritmo de decisión
-        const needsUmbrella = maxRainProbability >= RAIN_PROBABILITY_THRESHOLD || 
-                             accumulatedRain >= RAIN_INTENSITY_THRESHOLD;
-        
-        // Mostrar resultado en la interfaz
-        updateWeatherUI(needsUmbrella, {
+        // Crear objeto con datos meteorológicos analizados
+        const weatherData = {
             rainProbability: maxRainProbability,
-            rainAmount: accumulatedRain,
+            rainAmount: totalRainAmount,
+            maxRainIntensity: maxRainIntensity,
             temperature: averageTemperature,
             weatherCondition: mainWeatherCondition || (data.current && data.current.weather && data.current.weather[0] ? data.current.weather[0].main : ''),
-            weatherDescription: mainWeatherDescription || (data.current && data.current.weather && data.current.weather[0] ? data.current.weather[0].description : 'Condiciones normales')
-        });
+            weatherDescription: mainWeatherDescription || (data.current && data.current.weather && data.current.weather[0] ? data.current.weather[0].description : 'Condiciones normales'),
+            windSpeed: maxWindSpeed,
+            rainHours: rainHours,
+            consecutiveRainHours: maxConsecutiveRainHours,
+            totalHours: forecastsForTimeRange.length
+        };
+        
+        // Aplicar algoritmo mejorado de decisión
+        const umbrellaScore = calculateUmbrellaScore(weatherData);
+        const recommendation = getUmbrellaRecommendation(umbrellaScore, weatherData);
+        
+        // Mostrar resultado en la interfaz
+        updateWeatherUI(recommendation, weatherData);
         
     } catch (error) {
         console.error('Error al procesar datos meteorológicos:', error);
@@ -421,75 +505,129 @@ function processWeatherDataForTimeRange(data, timeRange) {
 }
 
 /**
- * Procesa los datos en formato antiguo (para mantener compatibilidad con el modo demo)
+ * Calcula una puntuación para determinar la necesidad de paraguas
+ * basado en un sistema ponderado de múltiples factores
  */
-function processLegacyFormatData(data, timeRange) {
-    // Implementación simplificada para el modo demo
-    // El modo demo no tiene capacidad para mostrar diferentes franjas horarias
-    // por lo que mostramos siempre los mismos datos
+function calculateUmbrellaScore(weatherData) {
+    let score = 0;
     
-    try {
-        if (!data || !data.list || data.list.length === 0) {
-            throw new Error('Datos meteorológicos inválidos');
+    // Factor 1: Probabilidad de lluvia (0-100 puntos)
+    let rainProbabilityScore = weatherData.rainProbability;
+    score += rainProbabilityScore * WEATHER_WEIGHTS.rainProbability;
+    
+    // Factor 2: Cantidad de lluvia (0-100 puntos)
+    // Convertimos mm a una escala 0-100
+    // 0mm = 0 puntos, >=10mm = 100 puntos (escala no lineal)
+    let rainAmountScore = 0;
+    if (weatherData.rainAmount > 0) {
+        // Usamos una curva logarítmica para puntuar la cantidad de lluvia
+        rainAmountScore = Math.min(100, 33 * Math.log10(weatherData.rainAmount * 10 + 1));
+        
+        // Bonus si hay lluvia intensa en algún momento
+        if (weatherData.maxRainIntensity && weatherData.maxRainIntensity > 2) {
+            rainAmountScore = Math.min(100, rainAmountScore + 20);
+        }
+    }
+    score += rainAmountScore * WEATHER_WEIGHTS.rainAmount;
+    
+    // Factor 3: Condición meteorológica (0-100 puntos)
+    let weatherConditionScore = 0;
+    if (weatherData.weatherCondition) {
+        const lowerCondition = weatherData.weatherCondition.toLowerCase();
+        
+        // Evaluar condiciones de lluvia y asignar puntajes
+        if (lowerCondition.includes('thunderstorm')) {
+            weatherConditionScore = 100; // Tormenta eléctrica
+        } else if (lowerCondition.includes('rain') && lowerCondition.includes('heavy')) {
+            weatherConditionScore = 90; // Lluvia intensa
+        } else if (lowerCondition.includes('rain')) {
+            weatherConditionScore = 80; // Lluvia normal
+        } else if (lowerCondition.includes('drizzle')) {
+            weatherConditionScore = 60; // Llovizna
+        } else if (lowerCondition.includes('shower')) {
+            weatherConditionScore = 70; // Chubascos
+        } else if (SNOW_CONDITIONS.some(condition => lowerCondition.includes(condition))) {
+            weatherConditionScore = 50; // Nieve/aguanieve (menos útil un paraguas normal, pero algo ayuda)
+        } else if (lowerCondition.includes('mist') || lowerCondition.includes('fog')) {
+            weatherConditionScore = 10; // Niebla (no necesario, pero puede haber humedad)
         }
         
-        // Actualizar el texto de fecha según la franja seleccionada
-        updateDateDisplay(timeRange, 0);
-        
-        // Para el modo demo, usamos los mismos datos independientemente de la franja seleccionada
-        let maxRainProbability = 0;
-        let accumulatedRain = 0;
-        let averageTemperature = 0;
-        let mainWeatherCondition = '';
-        let mainWeatherDescription = '';
-        
-        data.list.forEach(forecast => {
-            // Probabilidad de lluvia
-            const rainProbability = (forecast.pop || 0) * 100;
-            maxRainProbability = Math.max(maxRainProbability, rainProbability);
-            
-            // Acumular precipitación
-            const rainAmount = forecast.rain ? (forecast.rain['3h'] || 0) : 0;
-            accumulatedRain += rainAmount;
-            
-            // Acumular temperatura
-            averageTemperature += forecast.main.temp;
-            
-            // Guardar la condición climática
-            if (forecast.weather && forecast.weather.length > 0) {
-                const weather = forecast.weather[0];
-                if (weather.main.toLowerCase().includes('rain') || 
-                    weather.main.toLowerCase().includes('drizzle') || 
-                    weather.main.toLowerCase().includes('thunderstorm')) {
-                    mainWeatherCondition = weather.main;
-                    mainWeatherDescription = weather.description;
-                } else if (!mainWeatherCondition) {
-                    mainWeatherCondition = weather.main;
-                    mainWeatherDescription = weather.description;
-                }
+        // Bonificación por duración/patrones de lluvia (si tenemos esa información)
+        if (weatherData.rainHours && weatherData.totalHours) {
+            const rainPercentage = (weatherData.rainHours / weatherData.totalHours) * 100;
+            if (rainPercentage > 70) {
+                weatherConditionScore = Math.min(100, weatherConditionScore + 15);
             }
-        });
-        
-        // Calcular promedio de temperatura
-        averageTemperature /= data.list.length;
-        
-        // Aplicar algoritmo de decisión
-        const needsUmbrella = maxRainProbability >= RAIN_PROBABILITY_THRESHOLD || 
-                             accumulatedRain >= RAIN_INTENSITY_THRESHOLD;
-        
-        // Mostrar resultado en la interfaz
-        updateWeatherUI(needsUmbrella, {
-            rainProbability: maxRainProbability,
-            rainAmount: accumulatedRain,
-            temperature: averageTemperature,
-            weatherCondition: mainWeatherCondition,
-            weatherDescription: mainWeatherDescription
-        });
-        
-    } catch (error) {
-        console.error('Error al procesar datos meteorológicos:', error);
-        showError('Ha ocurrido un error al procesar los datos meteorológicos.');
+            
+            // Lluvia continuada es más importante que lluvia esporádica
+            if (weatherData.consecutiveRainHours >= 3) {
+                weatherConditionScore = Math.min(100, weatherConditionScore + 10);
+            }
+        }
     }
+    score += weatherConditionScore * WEATHER_WEIGHTS.weatherCondition;
+    
+    // Factor 4: Viento (0-100 puntos, pero inversamente proporcional)
+    // A mayor viento, menos útil es un paraguas
+    let windScore = 0;
+    if (weatherData.windSpeed) {
+        // Si hay viento fuerte, penalizar la utilidad del paraguas
+        if (weatherData.windSpeed > WIND_THRESHOLD) {
+            // Formula: 100 - (velocidad_viento - umbral) * 5
+            // Ejemplo: viento de 30 km/h = 100 - (30 - 20) * 5 = 100 - 50 = 50 puntos
+            windScore = Math.max(0, 100 - ((weatherData.windSpeed - WIND_THRESHOLD) * 5));
+        } else {
+            windScore = 100; // Sin penalización si el viento es ligero
+        }
+    } else {
+        windScore = 100; // Si no hay datos de viento, asumimos que no hay problema
+    }
+    score += windScore * WEATHER_WEIGHTS.windSpeed;
+    
+    return Math.min(100, Math.round(score));
+}
+
+/**
+ * Determina la recomendación específica basada en la puntuación
+ */
+function getUmbrellaRecommendation(score, weatherData) {
+    // Determinar nivel de recomendación
+    let level;
+    
+    if (score >= UMBRELLA_THRESHOLDS.definitely) {
+        level = 'definitely';
+    } else if (score >= UMBRELLA_THRESHOLDS.probably) {
+        level = 'probably';
+    } else if (score >= UMBRELLA_THRESHOLDS.maybe) {
+        level = 'maybe';
+    } else {
+        level = 'no';
+    }
+    
+    // Crear objeto de recomendación basado en el nivel
+    const recommendation = {
+        ...UMBRELLA_RECOMMENDATIONS[level], // Copiar propiedades básicas
+        score: score,
+        needsUmbrella: level !== 'no'
+    };
+    
+    // Añadir contexto adicional basado en condiciones específicas
+    if (level !== 'no' && weatherData.windSpeed > WIND_THRESHOLD) {
+        recommendation.additionalAdvice = 'Viento fuerte, considera también un impermeable.';
+    }
+    
+    if (weatherData.consecutiveRainHours >= 3) {
+        recommendation.additionalAdvice = (recommendation.additionalAdvice || '') + 
+            ' Se esperan períodos prolongados de lluvia.';
+    }
+    
+    if (weatherData.weatherCondition && 
+        weatherData.weatherCondition.toLowerCase().includes('thunderstorm')) {
+        recommendation.additionalAdvice = (recommendation.additionalAdvice || '') + 
+            ' ¡Atención! Se esperan tormentas eléctricas.';
+    }
+    
+    return recommendation;
 }
 
 /**
@@ -555,20 +693,20 @@ function showError(message) {
 /**
  * Actualiza la interfaz con la recomendación y datos meteorológicos
  */
-function updateWeatherUI(needsUmbrella, weatherData) {
-    // Actualizar recomendación
-    if (needsUmbrella) {
-        recommendationElement.textContent = '¡Lleva paraguas!';
-        weatherIconElement.innerHTML = '☔';
-        recommendationElement.style.color = 'var(--primary-color)';
-    } else {
-        recommendationElement.textContent = 'No necesitas paraguas';
-        weatherIconElement.innerHTML = '☀️';
-        recommendationElement.style.color = 'var(--success-color)';
-    }
+function updateWeatherUI(recommendation, weatherData) {
+    // Actualizar recomendación con el nuevo sistema
+    recommendationElement.textContent = recommendation.text;
+    weatherIconElement.innerHTML = recommendation.icon;
+    recommendationElement.style.color = recommendation.color;
     
-    // Actualizar descripción y detalles
-    weatherDescriptionElement.textContent = capitalizeFirstLetter(weatherData.weatherDescription || 'Condiciones normales');
+    // Mostrar consejo adicional si existe
+    let description = capitalizeFirstLetter(weatherData.weatherDescription || 'Condiciones normales');
+    if (recommendation.additionalAdvice) {
+        description += `. ${recommendation.additionalAdvice}`;
+    }
+    weatherDescriptionElement.textContent = description;
+    
+    // Actualizar detalles
     rainProbabilityElement.textContent = `${Math.round(weatherData.rainProbability)}%`;
     temperatureElement.textContent = `${Math.round(weatherData.temperature)}°C`;
     
@@ -581,6 +719,91 @@ function updateWeatherUI(needsUmbrella, weatherData) {
  */
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+/**
+ * Procesa los datos en formato antiguo (para mantener compatibilidad con el modo demo)
+ */
+function processLegacyFormatData(data, timeRange) {
+    // Implementación simplificada para el modo demo
+    // El modo demo no tiene capacidad para mostrar diferentes franjas horarias
+    // por lo que mostramos siempre los mismos datos
+    
+    try {
+        if (!data || !data.list || data.list.length === 0) {
+            throw new Error('Datos meteorológicos inválidos');
+        }
+        
+        // Actualizar el texto de fecha según la franja seleccionada
+        updateDateDisplay(timeRange, 0);
+        
+        // Para el modo demo, usamos los mismos datos independientemente de la franja seleccionada
+        let maxRainProbability = 0;
+        let totalRainAmount = 0;
+        let maxWindSpeed = 0;
+        let rainHours = 0;
+        let averageTemperature = 0;
+        let mainWeatherCondition = '';
+        let mainWeatherDescription = '';
+        
+        data.list.forEach(forecast => {
+            // Probabilidad de lluvia
+            const rainProbability = (forecast.pop || 0) * 100;
+            maxRainProbability = Math.max(maxRainProbability, rainProbability);
+            
+            // Acumular precipitación
+            const rainAmount = forecast.rain ? (forecast.rain['3h'] || 0) : 0;
+            totalRainAmount += rainAmount;
+            if (rainAmount > 0) rainHours++;
+            
+            // Velocidad del viento
+            maxWindSpeed = Math.max(maxWindSpeed, forecast.wind?.speed || 0);
+            
+            // Acumular temperatura
+            averageTemperature += forecast.main.temp;
+            
+            // Guardar la condición climática
+            if (forecast.weather && forecast.weather.length > 0) {
+                const weather = forecast.weather[0];
+                const weatherLower = weather.main.toLowerCase();
+                
+                if (RAIN_CONDITIONS.some(condition => weatherLower.includes(condition)) || 
+                    SNOW_CONDITIONS.some(condition => weatherLower.includes(condition))) {
+                    mainWeatherCondition = weather.main;
+                    mainWeatherDescription = weather.description;
+                } else if (!mainWeatherCondition) {
+                    mainWeatherCondition = weather.main;
+                    mainWeatherDescription = weather.description;
+                }
+            }
+        });
+        
+        // Calcular promedio de temperatura
+        averageTemperature /= data.list.length;
+        
+        // Crear objeto con datos meteorológicos analizados
+        const weatherData = {
+            rainProbability: maxRainProbability,
+            rainAmount: totalRainAmount,
+            temperature: averageTemperature,
+            weatherCondition: mainWeatherCondition,
+            weatherDescription: mainWeatherDescription,
+            windSpeed: maxWindSpeed,
+            rainHours: rainHours,
+            totalHours: data.list.length
+        };
+        
+        // Aplicar algoritmo mejorado de decisión
+        const umbrellaScore = calculateUmbrellaScore(weatherData);
+        const recommendation = getUmbrellaRecommendation(umbrellaScore, weatherData);
+        
+        // Mostrar resultado en la interfaz
+        updateWeatherUI(recommendation, weatherData);
+        
+    } catch (error) {
+        console.error('Error al procesar datos meteorológicos:', error);
+        showError('Ha ocurrido un error al procesar los datos meteorológicos.');
+    }
 }
 
 // Función para manejo manual de ubicación (a implementar si se quiere ofrecer esa alternativa)
